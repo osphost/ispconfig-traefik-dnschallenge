@@ -314,7 +314,7 @@ func createLogger() *zap.Logger {
 	}
 
 	config := zap.Config{
-		Level:             zap.NewAtomicLevelAt(zap.InfoLevel),
+		Level:             zap.NewAtomicLevelAt(zap.DebugLevel),
 		Development:       false,
 		DisableCaller:     false,
 		DisableStacktrace: false,
