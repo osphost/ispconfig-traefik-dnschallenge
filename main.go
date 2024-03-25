@@ -5,19 +5,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var (
 	ISPCUser     = os.Getenv("ISPC_User")
 	ISPCPassword = os.Getenv("ISPC_Password")
 	ISPCApi      = os.Getenv("ISPC_Api")
+	ISPCLogPath  = os.Getenv("ISPC_Log_Path")
 )
 
 type loginResponse struct {
@@ -298,13 +299,45 @@ func removeTxt(sessionID, fulldomain string) error {
 	return errors.New("Failed to retrieve TXT record")
 }
 
-func main() {
-	logger, err := zap.NewDevelopment()
+func createLogger() *zap.Logger {
+	encoderCfg := zap.NewProductionEncoderConfig()
+	encoderCfg.TimeKey = "timestamp"
+	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder
 
+	dirPath := ISPCLogPath + "/"
+
+	// Create the directory and its parent directories if they don't exist
+	err := os.MkdirAll(dirPath, 0755)
 	if err != nil {
-		log.Fatalf("Failed to create logger %s", err)
+		fmt.Println("Error creating directory:", err)
 		os.Exit(1)
 	}
+
+	config := zap.Config{
+		Level:             zap.NewAtomicLevelAt(zap.InfoLevel),
+		Development:       false,
+		DisableCaller:     false,
+		DisableStacktrace: false,
+		Sampling:          nil,
+		Encoding:          "json",
+		EncoderConfig:     encoderCfg,
+		OutputPaths: []string{
+			"stderr",
+			dirPath + "/" + time.Now().Format("2006-01-02") + ".log",
+		},
+		ErrorOutputPaths: []string{
+			"stderr",
+		},
+		InitialFields: map[string]interface{}{
+			"pid": os.Getpid(),
+		},
+	}
+
+	return zap.Must(config.Build())
+}
+
+func main() {
+	logger := createLogger()
 
 	args := os.Args
 	if len(args) < 3 {
